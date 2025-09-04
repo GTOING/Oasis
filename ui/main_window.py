@@ -96,13 +96,27 @@ class VideoThread(QThread):
     
     def _get_color_frame(self):
         """获取彩色帧"""
-        if self.kinect.has_new_color_frame():
-            frame_width = self.kinect.color_frame_desc.Width
-            frame_height = self.kinect.color_frame_desc.Height
-            frame = self.kinect.get_last_color_frame()
-            frame = frame.reshape((frame_height, frame_width, 4))
-            return cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
-        return None
+        try:
+            if self.kinect.has_new_color_frame():
+                frame_width = self.kinect.color_frame_desc.Width
+                frame_height = self.kinect.color_frame_desc.Height
+                frame = self.kinect.get_last_color_frame()
+                
+                if frame is not None and frame.size > 0:
+                    # Kinect v2 提供的是BGRA格式（注意是BGRA不是RGBA）
+                    frame = frame.reshape((frame_height, frame_width, 4))
+                    
+                    # 方法1：直接移除Alpha通道，保持BGR格式
+                    frame_bgr = frame[:, :, :3]  # 只取前3个通道(BGR)
+                    
+                    # 方法2：如果还有颜色问题，可以尝试手动交换B和R通道
+                    # frame_bgr = frame[:, :, [2, 1, 0]]  # BGR -> RGB 然后在显示时再转换
+                    
+                    return frame_bgr
+            return None
+        except Exception as e:
+            print(f"彩色帧处理错误: {e}")
+            return None
     
     def _get_depth_frame(self):
         """获取深度帧"""
@@ -218,61 +232,95 @@ class VideoThread(QThread):
     def _calculate_3d_coordinates(self, bbox, color_frame):
         """计算目标的3D坐标"""
         try:
-            if not self.kinect or not hasattr(self.kinect, 'has_new_depth_frame'):
+            if not self.kinect:
+                print("Kinect 设备未初始化")
                 return None
             
-            # 获取深度数据
-            if self.kinect.has_new_depth_frame():
-                depth_frame = self.kinect.get_last_depth_frame()
-                if depth_frame is not None:
-                    depth_width = self.kinect.depth_frame_desc.Width
-                    depth_height = self.kinect.depth_frame_desc.Height
-                    depth_data = depth_frame.reshape((depth_height, depth_width))
-                    
-                    # 计算边界框中心点在彩色图像中的位置
-                    x1, y1, x2, y2 = bbox
-                    center_x = int((x1 + x2) / 2)
-                    center_y = int((y1 + y2) / 2)
-                    
-                    # 将彩色图像坐标映射到深度图像坐标
-                    # Kinect彩色图像通常是1920x1080，深度图像是512x424
-                    color_width = self.kinect.color_frame_desc.Width
-                    color_height = self.kinect.color_frame_desc.Height
-                    
-                    # 坐标映射（简化版本，实际应用中可能需要更精确的标定）
-                    depth_x = int(center_x * depth_width / color_width)
-                    depth_y = int(center_y * depth_height / color_height)
-                    
-                    # 确保坐标在深度图像范围内
-                    depth_x = max(0, min(depth_x, depth_width - 1))
-                    depth_y = max(0, min(depth_y, depth_height - 1))
-                    
-                    # 获取深度值（毫米）
-                    depth_mm = depth_data[depth_y, depth_x]
-                    
-                    if depth_mm > 0:  # 有效深度值
-                        # Kinect v2 的相机内参（近似值）
-                        fx = 365.481  # 焦距x
-                        fy = 365.481  # 焦距y
-                        cx = 257.346  # 主点x
-                        cy = 210.347  # 主点y
-                        
-                        # 将深度图像坐标转换为3D坐标
-                        z = depth_mm  # Z坐标就是深度值（毫米）
-                        x = (depth_x - cx) * z / fx  # X坐标
-                        y = (depth_y - cy) * z / fy  # Y坐标
-                        
-                        return {
-                            'x': round(x, 2),
-                            'y': round(y, 2), 
-                            'z': round(z, 2),
-                            'unit': 'mm'
-                        }
+            # 尝试获取深度数据 - 使用缓存的深度帧避免同步问题
+            depth_frame = None
+            depth_data = None
             
-            return None
+            # 多次尝试获取深度帧
+            for attempt in range(3):
+                try:
+                    if hasattr(self.kinect, 'has_new_depth_frame') and self.kinect.has_new_depth_frame():
+                        depth_frame = self.kinect.get_last_depth_frame()
+                        break
+                    elif hasattr(self.kinect, 'get_last_depth_frame'):
+                        depth_frame = self.kinect.get_last_depth_frame()
+                        break
+                except:
+                    continue
+            
+            if depth_frame is None:
+                print("无法获取深度帧")
+                return None
+                
+            try:
+                depth_width = self.kinect.depth_frame_desc.Width
+                depth_height = self.kinect.depth_frame_desc.Height
+                depth_data = depth_frame.reshape((depth_height, depth_width))
+            except Exception as e:
+                print(f"深度数据处理错误: {e}")
+                return None
+            
+            # 计算边界框中心点在彩色图像中的位置
+            x1, y1, x2, y2 = bbox
+            center_x = int((x1 + x2) / 2)
+            center_y = int((y1 + y2) / 2)
+            
+            # 获取彩色图像尺寸
+            try:
+                color_width = self.kinect.color_frame_desc.Width
+                color_height = self.kinect.color_frame_desc.Height
+            except:
+                # 默认值（常见的Kinect v2分辨率）
+                color_width = 1920
+                color_height = 1080
+            
+            # 坐标映射：彩色图像坐标 -> 深度图像坐标
+            depth_x = int(center_x * depth_width / color_width)
+            depth_y = int(center_y * depth_height / color_height)
+            
+            # 确保坐标在深度图像范围内
+            depth_x = max(0, min(depth_x, depth_width - 1))
+            depth_y = max(0, min(depth_y, depth_height - 1))
+            
+            # 获取深度值（毫米）
+            depth_mm = depth_data[depth_y, depth_x]
+            
+            # 调试信息
+            print(f"3D坐标计算: bbox={bbox}, center=({center_x},{center_y}), depth_pos=({depth_x},{depth_y}), depth={depth_mm}mm")
+            
+            if depth_mm > 0 and depth_mm < 8000:  # 有效深度值范围
+                # Kinect v2 深度相机内参（标准值）
+                fx = 365.481  # 焦距x
+                fy = 365.481  # 焦距y  
+                cx = 257.346  # 主点x (depth_width/2的近似值)
+                cy = 210.347  # 主点y (depth_height/2的近似值)
+                
+                # 将深度图像坐标转换为3D世界坐标
+                z = depth_mm  # Z坐标（深度，毫米）
+                x = (depth_x - cx) * z / fx  # X坐标（毫米）
+                y = (depth_y - cy) * z / fy  # Y坐标（毫米）
+                
+                coords_3d = {
+                    'x': round(x, 1),
+                    'y': round(y, 1), 
+                    'z': round(z, 1),
+                    'unit': 'mm'
+                }
+                
+                print(f"计算出的3D坐标: {coords_3d}")
+                return coords_3d
+            else:
+                print(f"无效深度值: {depth_mm}mm")
+                return None
             
         except Exception as e:
-            print(f"3D坐标计算错误: {e}")
+            print(f"3D坐标计算异常: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def stop(self):
@@ -499,10 +547,13 @@ class ControlPanel(QWidget):
         
     def init_ui(self):
         layout = QVBoxLayout()
+        layout.setSpacing(8)
+        layout.setContentsMargins(10, 10, 10, 10)
         
         # 标题
         title = QLabel("控制面板")
         title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        title.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         layout.addWidget(title)
         
         # 模式选择组
@@ -827,7 +878,15 @@ class VideoDisplayWidget(QLabel):
         # 转换为 QImage 并显示
         height, width, channel = frame.shape
         bytes_per_line = 3 * width
-        q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format.Format_RGB888).rgbSwapped()
+        
+        if stream_type == "color":
+            # 对于彩色流，Kinect提供BGR格式，需要转换为RGB用于Qt显示
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            q_image = QImage(frame_rgb.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
+        else:
+            # 对于其他流类型（深度、红外等），已经是BGR格式，直接使用rgbSwapped
+            q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format.Format_RGB888).rgbSwapped()
+        
         pixmap = QPixmap.fromImage(q_image)
         self.setPixmap(pixmap)
 
@@ -872,15 +931,24 @@ class MainWindow(QMainWindow):
         
         # 左侧：视频显示
         self.video_display = VideoDisplayWidget()
+        # 设置视频显示的最小尺寸和大小策略
+        self.video_display.setMinimumSize(480, 360)
+        self.video_display.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         splitter.addWidget(self.video_display)
         
         # 右侧：控制面板和检测结果
         right_panel = QWidget()
+        right_panel.setMinimumWidth(350)
+        right_panel.setMaximumWidth(450)
+        right_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         right_layout = QVBoxLayout()
+        right_layout.setSpacing(10)
+        right_layout.setContentsMargins(10, 10, 10, 10)
         right_panel.setLayout(right_layout)
         
         # 控制面板
         self.control_panel = ControlPanel()
+        self.control_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         self.control_panel.start_detection.connect(self.start_detection)
         self.control_panel.stop_detection.connect(self.stop_detection)
         self.control_panel.target_classes_changed.connect(self.update_target_classes)
@@ -894,12 +962,19 @@ class MainWindow(QMainWindow):
         
         # 检测结果
         self.detection_widget = DetectionWidget()
+        self.detection_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         right_layout.addWidget(self.detection_widget)
         
         splitter.addWidget(right_panel)
         
-        # 设置分割器比例
-        splitter.setSizes(config_manager.ui.splitter_sizes)
+        # 设置分割器比例：视频区域占大部分，控制面板占较小部分
+        try:
+            splitter.setSizes(config_manager.ui.splitter_sizes)
+        except:
+            splitter.setSizes([800, 400])  # 默认比例
+        
+        splitter.setStretchFactor(0, 1)  # 视频区域可伸缩
+        splitter.setStretchFactor(1, 0)  # 控制面板保持固定比例
         
         # 状态栏
         self.status_bar = QStatusBar()
