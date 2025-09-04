@@ -15,6 +15,8 @@ class DetectionConfig:
     confidence_threshold: float
     model_path: str
     max_detections: int
+    enable_3d_coordinates: bool
+    custom_classes: List[str]
     
     @classmethod
     def default(cls):
@@ -22,7 +24,9 @@ class DetectionConfig:
             target_classes=['bottle', 'cup', 'cell phone', 'mouse', 'pen'],
             confidence_threshold=0.5,
             model_path='yolo11n.pt',
-            max_detections=50
+            max_detections=50,
+            enable_3d_coordinates=False,
+            custom_classes=[]
         )
 
 
@@ -169,6 +173,31 @@ class ConfigManager:
             'near': '近距模式 (0.5-4.5m)',
             'default': '默认模式 (0.8-8m)'
         }
+    
+    def add_custom_class(self, class_name: str):
+        """添加自定义检测类别"""
+        if class_name and class_name not in self.detection.custom_classes:
+            self.detection.custom_classes.append(class_name)
+            self.save_config()
+    
+    def remove_custom_class(self, class_name: str):
+        """删除自定义检测类别"""
+        if class_name in self.detection.custom_classes:
+            self.detection.custom_classes.remove(class_name)
+            self.save_config()
+    
+    def get_all_available_classes(self) -> List[str]:
+        """获取所有可用的检测类别（预定义+自定义）"""
+        return self.get_all_classes() + self.detection.custom_classes
+    
+    def is_3d_coordinates_enabled(self) -> bool:
+        """检查是否启用3D坐标功能"""
+        return self.detection.enable_3d_coordinates
+    
+    def set_3d_coordinates_enabled(self, enabled: bool):
+        """设置3D坐标功能开关"""
+        self.detection.enable_3d_coordinates = enabled
+        self.save_config()
     
     def reset_to_defaults(self):
         """重置为默认配置"""

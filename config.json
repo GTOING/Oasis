@@ -1,0 +1,51 @@
+{
+  "detection": {
+    "target_classes": [
+      "bottle",
+      "cup",
+      "cell phone",
+      "mouse",
+      "pen"
+    ],
+    "confidence_threshold": 0.5,
+    "model_path": "yolo11n.pt",
+    "max_detections": 50,
+    "enable_3d_coordinates": false,
+    "custom_classes": []
+  },
+  "display": {
+    "show_confidence": true,
+    "show_class_names": true,
+    "bbox_thickness": 2,
+    "font_scale": 0.5,
+    "bbox_color": [
+      0,
+      255,
+      0
+    ],
+    "text_color": [
+      0,
+      255,
+      0
+    ]
+  },
+  "kinect": {
+    "color_resolution": "1920x1080",
+    "fps": 30,
+    "auto_exposure": true,
+    "video_stream_type": "color",
+    "depth_mode": "near"
+  },
+  "ui": {
+    "theme": "light",
+    "window_size": [
+      1200,
+      800
+    ],
+    "splitter_sizes": [
+      800,
+      400
+    ],
+    "auto_start": false
+  }
+}
