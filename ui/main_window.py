@@ -81,13 +81,20 @@ class VideoThread(QThread):
                     self.frame_ready.emit(frame.copy())
                     
                     # 只对彩色图像执行目标检测
-                                          if self.model and self.stream_type == "color":
+                    if self.model and self.stream_type == "color":
                           results = self.model(frame, verbose=False)
                           detections = self.process_detections(results, frame)
                           self.detection_ready.emit(detections)
                     elif self.stream_type != "color":
                         # 非彩色流不进行目标检测
                         self.detection_ready.emit([])
+                
+                # 发送流信息用于状态显示
+                if hasattr(self, 'stream_info_ready'):
+                    stream_info = f"Kinect {self.stream_type.title()} 模式"
+                    if self.stream_type == "color" and config_manager.detection.enable_3d_coordinates:
+                        stream_info += " | 3D坐标已启用"
+                    self.stream_info_ready.emit(stream_info)
                         
                 self.msleep(33)  # 约30FPS
                 
@@ -96,13 +103,27 @@ class VideoThread(QThread):
     
     def _get_color_frame(self):
         """获取彩色帧"""
-        if self.kinect.has_new_color_frame():
-            frame_width = self.kinect.color_frame_desc.Width
-            frame_height = self.kinect.color_frame_desc.Height
-            frame = self.kinect.get_last_color_frame()
-            frame = frame.reshape((frame_height, frame_width, 4))
-            return cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
-        return None
+        try:
+            if self.kinect.has_new_color_frame():
+                frame_width = self.kinect.color_frame_desc.Width
+                frame_height = self.kinect.color_frame_desc.Height
+                frame = self.kinect.get_last_color_frame()
+                
+                if frame is not None and frame.size > 0:
+                    # Kinect v2 实际提供的是BGRA格式（注意顺序）
+                    frame = frame.reshape((frame_height, frame_width, 4))
+                    
+                    # 方法1：直接移除Alpha通道，保持BGRA->BGR
+                    frame_bgr = frame[:, :, :3]  # 取前3个通道 (BGR)
+                    
+                    # 调试：检查帧是否正常
+                    print(f"彩色帧: {frame_width}x{frame_height}, 数据范围: {frame_bgr.min()}-{frame_bgr.max()}")
+                    
+                    return frame_bgr
+            return None
+        except Exception as e:
+            print(f"彩色帧处理错误: {e}")
+            return None
     
     def _get_depth_frame(self):
         """获取深度帧"""
@@ -178,24 +199,56 @@ class VideoThread(QThread):
     
     def _get_body_index_frame(self):
         """获取人体索引帧"""
-        if self.kinect.has_new_body_index_frame():
-            frame_width = self.kinect.body_index_frame_desc.Width
-            frame_height = self.kinect.body_index_frame_desc.Height
-            frame = self.kinect.get_last_body_index_frame()
-            frame = frame.reshape((frame_height, frame_width))
-            
-            # 将人体索引转换为彩色图像
-            # 不同的人体索引用不同颜色表示
-            frame_colored = np.zeros((frame_height, frame_width, 3), dtype=np.uint8)
-            colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
-            
-            for i in range(6):  # Kinect 最多检测6个人
-                mask = frame == i
-                if np.any(mask):
-                    frame_colored[mask] = colors[i % len(colors)]
-            
-            return frame_colored
-        return None
+        try:
+            if hasattr(self.kinect, 'has_new_body_index_frame') and self.kinect.has_new_body_index_frame():
+                frame_width = self.kinect.body_index_frame_desc.Width
+                frame_height = self.kinect.body_index_frame_desc.Height
+                frame = self.kinect.get_last_body_index_frame()
+                
+                if frame is not None and frame.size > 0:
+                    frame = frame.reshape((frame_height, frame_width))
+                    
+                    # 将人体索引转换为彩色图像
+                    # 不同的人体索引用不同颜色表示
+                    frame_colored = np.zeros((frame_height, frame_width, 3), dtype=np.uint8)
+                    
+                    # 更鲜明的颜色组合，包括背景处理
+                    colors = [
+                        (50, 50, 50),      # 背景 - 深灰色
+                        (255, 100, 100),   # 人体1 - 红色
+                        (100, 255, 100),   # 人体2 - 绿色  
+                        (100, 100, 255),   # 人体3 - 蓝色
+                        (255, 255, 100),   # 人体4 - 黄色
+                        (255, 100, 255),   # 人体5 - 紫色
+                        (100, 255, 255),   # 人体6 - 青色
+                    ]
+                    
+                    # 检查是否有人体数据
+                    unique_values = np.unique(frame)
+                    print(f"人体索引帧包含值: {unique_values}")
+                    
+                    # 处理所有可能的索引值
+                    for i in range(min(len(colors), 256)):  # 最多256个索引
+                        mask = (frame == i)
+                        if np.any(mask):
+                            frame_colored[mask] = colors[i % len(colors)]
+                            if i > 0:  # 人体索引 (非背景)
+                                print(f"检测到人体索引 {i}: {np.sum(mask)} 像素")
+                    
+                    # 如果没有检测到任何人体，显示原始数据的可视化
+                    if len(unique_values) <= 1 or np.all(frame == 0):
+                        print("未检测到人体，显示原始索引数据")
+                        # 将原始数据标准化为灰度图
+                        frame_norm = np.clip(frame.astype(np.float32) * 40, 0, 255).astype(np.uint8)
+                        frame_colored = cv2.cvtColor(frame_norm, cv2.COLOR_GRAY2BGR)
+                    
+                    return frame_colored
+                else:
+                    print("人体索引帧数据为空")
+            return None
+        except Exception as e:
+            print(f"人体索引帧处理错误: {e}")
+            return None
                 
     def process_detections(self, results, color_frame=None):
         """处理检测结果"""
@@ -240,28 +293,42 @@ class VideoThread(QThread):
                 print("Kinect 设备未初始化")
                 return None
             
-            # 获取深度数据
+            # 获取深度数据 - 改进的同步策略
             depth_frame = None
             depth_data = None
             
-            # 多次尝试获取深度帧 - 关键是同步获取
-            for attempt in range(3):
+            # 尝试多种方式获取深度帧
+            for attempt in range(5):  # 增加重试次数
                 try:
-                    if hasattr(self.kinect, 'has_new_depth_frame') and self.kinect.has_new_depth_frame():
+                    # 方法1：检查是否有新的深度帧
+                    if hasattr(self.kinect, 'has_new_depth_frame'):
+                        if self.kinect.has_new_depth_frame():
+                            depth_frame = self.kinect.get_last_depth_frame()
+                            print(f"方法1成功获取深度帧 (尝试{attempt+1})")
+                            break
+                    
+                    # 方法2：直接获取最后的深度帧
+                    if hasattr(self.kinect, 'get_last_depth_frame') and depth_frame is None:
                         depth_frame = self.kinect.get_last_depth_frame()
-                        break
-                    elif hasattr(self.kinect, 'get_last_depth_frame'):
-                        depth_frame = self.kinect.get_last_depth_frame()
-                        break
-                    # 短暂等待避免立即重试
+                        if depth_frame is not None:
+                            print(f"方法2成功获取深度帧 (尝试{attempt+1})")
+                            break
+                    
+                    # 短暂等待让Kinect更新数据
                     import time
-                    time.sleep(0.001)  # 1ms等待
+                    time.sleep(0.005)  # 5ms等待
+                    
                 except Exception as e:
                     print(f"尝试{attempt+1}获取深度帧失败: {e}")
                     continue
             
             if depth_frame is None:
-                print("无法获取深度帧 - 确保Kinect正在运行且深度传感器正常")
+                print("⚠️  无法获取深度帧")
+                print("📝 建议:")
+                print("   1. 确保Kinect正在运行且连接正常")
+                print("   2. 检查深度传感器是否被遮挡")
+                print("   3. 尝试重启Kinect服务")
+                print("   4. 在Kinect设置中同时启用彩色和深度传感器")
                 return None
                 
             try:
@@ -1150,7 +1217,7 @@ class MainWindow(QMainWindow):
             self.status_bar.showMessage(f"Kinect 初始化失败: {e}")
     
     def _get_kinect_frame_types(self, stream_type):
-        """根据流类型获取对应的帧类型"""
+        """根据流类型获取对应的帧类型 - 支持3D坐标的多传感器模式"""
         try:
             from pykinect2 import PyKinectV2
             
@@ -1161,15 +1228,26 @@ class MainWindow(QMainWindow):
                 'body_index': PyKinectV2.FrameSourceTypes_BodyIndex
             }
             
-            # 默认包含彩色流用于目标检测
-            frame_types = PyKinectV2.FrameSourceTypes_Color
+            # 🔧 修复关键问题：为了支持3D坐标计算，始终启用彩色和深度传感器
+            if config_manager.detection.enable_3d_coordinates:
+                print("🎯 3D坐标模式：同时启用彩色和深度传感器")
+                frame_types = (PyKinectV2.FrameSourceTypes_Color | 
+                              PyKinectV2.FrameSourceTypes_Depth)
+                
+                # 添加当前选择的流类型（如果不是彩色或深度）
+                if stream_type in frame_type_map:
+                    if stream_type not in ['color', 'depth']:
+                        frame_types |= frame_type_map[stream_type]
+                        print(f"📷 添加额外传感器: {stream_type}")
+            else:
+                # 普通模式：只启用选择的传感器类型
+                print(f"📷 单传感器模式: {stream_type}")
+                if stream_type in frame_type_map:
+                    frame_types = frame_type_map[stream_type]
+                else:
+                    frame_types = PyKinectV2.FrameSourceTypes_Color  # 默认彩色
             
-            # 添加选择的流类型
-            if stream_type in frame_type_map and stream_type != 'color':
-                frame_types |= frame_type_map[stream_type]
-            elif stream_type == 'color':
-                frame_types = frame_type_map[stream_type]
-            
+            print(f"🔧 Kinect初始化类型: {frame_types}")
             return frame_types
             
         except ImportError:
@@ -1278,9 +1356,19 @@ class MainWindow(QMainWindow):
     def on_3d_coordinates_changed(self, enabled):
         """3D坐标功能开关改变处理"""
         if enabled:
-            self.status_bar.showMessage("3D坐标功能已启用")
+            self.status_bar.showMessage("3D坐标功能已启用 - 正在重新初始化Kinect...")
+            print("🎯 启用3D坐标功能，需要同时访问彩色和深度传感器")
         else:
-            self.status_bar.showMessage("3D坐标功能已禁用")
+            self.status_bar.showMessage("3D坐标功能已禁用 - 正在重新初始化Kinect...")
+            print("📷 禁用3D坐标功能，切换到单传感器模式")
+        
+        # 重新初始化Kinect以支持新的传感器配置
+        if hasattr(self, 'video_thread') and self.video_thread and self.video_thread.running:
+            print("🔄 重新启动Kinect检测以应用新配置...")
+            self.stop_detection()
+            # 重新初始化 Kinect 以支持新的传感器配置
+            self.init_kinect()
+            self.start_detection()
     
     def on_custom_class_added(self, class_name):
         """自定义类别添加处理"""
