@@ -24,6 +24,7 @@ class VideoThread(QThread):
     """Kinect 视频处理线程"""
     frame_ready = pyqtSignal(np.ndarray)
     detection_ready = pyqtSignal(list)
+    stream_info_ready = pyqtSignal(str)
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -31,6 +32,8 @@ class VideoThread(QThread):
         self.kinect = None
         self.running = False
         self.target_classes = config_manager.detection.target_classes
+        self.stream_type = config_manager.kinect.video_stream_type
+        self.depth_mode = config_manager.kinect.depth_mode
         
     def set_model(self, model):
         self.model = model
@@ -40,6 +43,14 @@ class VideoThread(QThread):
         
     def set_target_classes(self, classes):
         self.target_classes = classes
+    
+    def set_stream_type(self, stream_type):
+        """设置视频流类型"""
+        self.stream_type = stream_type
+        
+    def set_depth_mode(self, depth_mode):
+        """设置深度模式"""
+        self.depth_mode = depth_mode
         
     def run(self):
         """主运行循环"""
@@ -47,31 +58,99 @@ class VideoThread(QThread):
         
         if not self.kinect:
             return
-            
-        frame_width = self.kinect.color_frame_desc.Width
-        frame_height = self.kinect.color_frame_desc.Height
+        
+        # 发送流信息
+        stream_name = config_manager.get_kinect_stream_types().get(self.stream_type, self.stream_type)
+        self.stream_info_ready.emit(f"Kinect 模式: {stream_name}")
         
         while self.running:
             try:
-                if self.kinect.has_new_color_frame():
-                    # 获取彩色帧
-                    frame = self.kinect.get_last_color_frame()
-                    frame = frame.reshape((frame_height, frame_width, 4))
-                    frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
-                    
+                frame = None
+                
+                if self.stream_type == "color":
+                    frame = self._get_color_frame()
+                elif self.stream_type == "depth":
+                    frame = self._get_depth_frame()
+                elif self.stream_type == "infrared":
+                    frame = self._get_infrared_frame()
+                elif self.stream_type == "body_index":
+                    frame = self._get_body_index_frame()
+                
+                if frame is not None:
                     # 发送原始帧
-                    self.frame_ready.emit(frame_bgr.copy())
+                    self.frame_ready.emit(frame.copy())
                     
-                    # 执行检测
-                    if self.model:
-                        results = self.model(frame_bgr, verbose=False)
+                    # 只对彩色图像执行目标检测
+                    if self.model and self.stream_type == "color":
+                        results = self.model(frame, verbose=False)
                         detections = self.process_detections(results)
                         self.detection_ready.emit(detections)
+                    elif self.stream_type != "color":
+                        # 非彩色流不进行目标检测
+                        self.detection_ready.emit([])
                         
-                self.msleep(30)  # 约30FPS
+                self.msleep(33)  # 约30FPS
                 
             except Exception as e:
                 print(f"Kinect 视频线程错误: {e}")
+    
+    def _get_color_frame(self):
+        """获取彩色帧"""
+        if self.kinect.has_new_color_frame():
+            frame_width = self.kinect.color_frame_desc.Width
+            frame_height = self.kinect.color_frame_desc.Height
+            frame = self.kinect.get_last_color_frame()
+            frame = frame.reshape((frame_height, frame_width, 4))
+            return cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
+        return None
+    
+    def _get_depth_frame(self):
+        """获取深度帧"""
+        if self.kinect.has_new_depth_frame():
+            frame_width = self.kinect.depth_frame_desc.Width
+            frame_height = self.kinect.depth_frame_desc.Height
+            frame = self.kinect.get_last_depth_frame()
+            frame = frame.reshape((frame_height, frame_width))
+            
+            # 将深度数据转换为可视化图像
+            # 深度值范围通常是 0-8000mm，转换为 0-255 的灰度图
+            frame_normalized = np.clip(frame / 8000.0 * 255, 0, 255).astype(np.uint8)
+            return cv2.cvtColor(frame_normalized, cv2.COLOR_GRAY2BGR)
+        return None
+    
+    def _get_infrared_frame(self):
+        """获取红外帧"""
+        if self.kinect.has_new_infrared_frame():
+            frame_width = self.kinect.infrared_frame_desc.Width
+            frame_height = self.kinect.infrared_frame_desc.Height
+            frame = self.kinect.get_last_infrared_frame()
+            frame = frame.reshape((frame_height, frame_width))
+            
+            # 将红外数据转换为可视化图像
+            frame_normalized = np.clip(frame / 65535.0 * 255, 0, 255).astype(np.uint8)
+            return cv2.cvtColor(frame_normalized, cv2.COLOR_GRAY2BGR)
+        return None
+    
+    def _get_body_index_frame(self):
+        """获取人体索引帧"""
+        if self.kinect.has_new_body_index_frame():
+            frame_width = self.kinect.body_index_frame_desc.Width
+            frame_height = self.kinect.body_index_frame_desc.Height
+            frame = self.kinect.get_last_body_index_frame()
+            frame = frame.reshape((frame_height, frame_width))
+            
+            # 将人体索引转换为彩色图像
+            # 不同的人体索引用不同颜色表示
+            frame_colored = np.zeros((frame_height, frame_width, 3), dtype=np.uint8)
+            colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
+            
+            for i in range(6):  # Kinect 最多检测6个人
+                mask = frame == i
+                if np.any(mask):
+                    frame_colored[mask] = colors[i % len(colors)]
+            
+            return frame_colored
+        return None
                 
     def process_detections(self, results):
         """处理检测结果"""
@@ -301,6 +380,7 @@ class ControlPanel(QWidget):
     target_classes_changed = pyqtSignal(list)
     debug_mode_changed = pyqtSignal(bool)
     camera_index_changed = pyqtSignal(int)
+    kinect_stream_changed = pyqtSignal(str)
     
     def __init__(self):
         super().__init__()
@@ -346,9 +426,36 @@ class ControlPanel(QWidget):
         
         mode_layout.addLayout(camera_layout)
         
-        # 初始状态：摄像头选择不可用
+        # Kinect 视频流类型选择（仅 Kinect 模式）
+        kinect_layout = QHBoxLayout()
+        self.kinect_stream_label = QLabel("视频流:")
+        self.kinect_stream_combo = QComboBox()
+        
+        # 添加视频流类型选项
+        stream_types = config_manager.get_kinect_stream_types()
+        for key, display_name in stream_types.items():
+            self.kinect_stream_combo.addItem(display_name, key)
+        
+        # 设置当前选择
+        current_stream = config_manager.kinect.video_stream_type
+        for i in range(self.kinect_stream_combo.count()):
+            if self.kinect_stream_combo.itemData(i) == current_stream:
+                self.kinect_stream_combo.setCurrentIndex(i)
+                break
+        
+        self.kinect_stream_combo.currentIndexChanged.connect(self.on_kinect_stream_changed)
+        
+        kinect_layout.addWidget(self.kinect_stream_label)
+        kinect_layout.addWidget(self.kinect_stream_combo)
+        kinect_layout.addStretch()
+        
+        mode_layout.addLayout(kinect_layout)
+        
+        # 初始状态设置
         self.camera_label.setEnabled(False)
         self.camera_combo.setEnabled(False)
+        self.kinect_stream_label.setEnabled(True)
+        self.kinect_stream_combo.setEnabled(True)
         
         mode_group.setLayout(mode_layout)
         layout.addWidget(mode_group)
@@ -409,18 +516,26 @@ class ControlPanel(QWidget):
         sender = self.sender()
         if sender == self.kinect_mode_rb and self.kinect_mode_rb.isChecked():
             self.debug_mode_rb.setChecked(False)
+            # 启用 Kinect 控件，禁用摄像头控件
+            self.kinect_stream_label.setEnabled(True)
+            self.kinect_stream_combo.setEnabled(True)
             self.camera_label.setEnabled(False)
             self.camera_combo.setEnabled(False)
             self.debug_mode_changed.emit(False)
         elif sender == self.debug_mode_rb and self.debug_mode_rb.isChecked():
             self.kinect_mode_rb.setChecked(False)
+            # 启用摄像头控件，禁用 Kinect 控件
             self.camera_label.setEnabled(True)
             self.camera_combo.setEnabled(True)
+            self.kinect_stream_label.setEnabled(False)
+            self.kinect_stream_combo.setEnabled(False)
             self.debug_mode_changed.emit(True)
         
         # 如果都没选中，默认选择 Kinect 模式
         if not self.kinect_mode_rb.isChecked() and not self.debug_mode_rb.isChecked():
             self.kinect_mode_rb.setChecked(True)
+            self.kinect_stream_label.setEnabled(True)
+            self.kinect_stream_combo.setEnabled(True)
             self.camera_label.setEnabled(False)
             self.camera_combo.setEnabled(False)
             self.debug_mode_changed.emit(False)
@@ -429,6 +544,11 @@ class ControlPanel(QWidget):
         """摄像头选择改变"""
         self.camera_index_changed.emit(index)
     
+    def on_kinect_stream_changed(self, index):
+        """Kinect 视频流类型改变"""
+        stream_type = self.kinect_stream_combo.itemData(index)
+        self.kinect_stream_changed.emit(stream_type)
+    
     def is_debug_mode(self):
         """检查是否为调试模式"""
         return self.debug_mode_rb.isChecked()
@@ -436,6 +556,10 @@ class ControlPanel(QWidget):
     def get_camera_index(self):
         """获取选择的摄像头索引"""
         return self.camera_combo.currentIndex()
+    
+    def get_kinect_stream_type(self):
+        """获取选择的 Kinect 视频流类型"""
+        return self.kinect_stream_combo.currentData()
         
     def on_class_changed(self):
         selected_classes = []
@@ -466,9 +590,23 @@ class VideoDisplayWidget(QLabel):
         self.setText("等待视频输入...")
         self.setScaledContents(True)
         
-    def update_frame(self, frame, detections=None):
+    def update_frame(self, frame, detections=None, stream_type="color"):
         """更新显示帧"""
-        if detections:
+        # 为不同的流类型添加标识
+        if stream_type != "color":
+            stream_names = {
+                "depth": "深度图像",
+                "infrared": "红外图像", 
+                "body_index": "人体索引"
+            }
+            stream_label = stream_names.get(stream_type, stream_type)
+            
+            # 在图像顶部添加流类型标识
+            cv2.putText(frame, stream_label, (10, 30), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+        
+        # 只在彩色流上绘制检测结果
+        if detections and stream_type == "color":
             # 在帧上绘制检测结果
             display_config = config_manager.display
             
@@ -558,6 +696,7 @@ class MainWindow(QMainWindow):
         self.control_panel.target_classes_changed.connect(self.update_target_classes)
         self.control_panel.debug_mode_changed.connect(self.on_debug_mode_changed)
         self.control_panel.camera_index_changed.connect(self.on_camera_index_changed)
+        self.control_panel.kinect_stream_changed.connect(self.on_kinect_stream_changed)
         right_layout.addWidget(self.control_panel)
         
         # 检测结果
@@ -686,10 +825,42 @@ class MainWindow(QMainWindow):
         """初始化 Kinect 传感器"""
         try:
             from pykinect2 import PyKinectV2, PyKinectRuntime
-            self.kinect = PyKinectRuntime.PyKinectRuntime(PyKinectV2.FrameSourceTypes_Color)
+            
+            # 根据配置的流类型初始化不同的帧源
+            stream_type = config_manager.kinect.video_stream_type
+            frame_types = self._get_kinect_frame_types(stream_type)
+            
+            self.kinect = PyKinectRuntime.PyKinectRuntime(frame_types)
             self.status_bar.showMessage("Kinect 传感器初始化成功")
         except Exception as e:
             self.status_bar.showMessage(f"Kinect 初始化失败: {e}")
+    
+    def _get_kinect_frame_types(self, stream_type):
+        """根据流类型获取对应的帧类型"""
+        try:
+            from pykinect2 import PyKinectV2
+            
+            frame_type_map = {
+                'color': PyKinectV2.FrameSourceTypes_Color,
+                'depth': PyKinectV2.FrameSourceTypes_Depth,
+                'infrared': PyKinectV2.FrameSourceTypes_Infrared,
+                'body_index': PyKinectV2.FrameSourceTypes_BodyIndex
+            }
+            
+            # 默认包含彩色流用于目标检测
+            frame_types = PyKinectV2.FrameSourceTypes_Color
+            
+            # 添加选择的流类型
+            if stream_type in frame_type_map and stream_type != 'color':
+                frame_types |= frame_type_map[stream_type]
+            elif stream_type == 'color':
+                frame_types = frame_type_map[stream_type]
+            
+            return frame_types
+            
+        except ImportError:
+            # 如果 PyKinect2 不可用，返回默认值
+            return 1  # 假设的默认值
             
     def start_detection(self):
         """开始检测"""
@@ -721,9 +892,11 @@ class MainWindow(QMainWindow):
             self.video_thread.set_model(self.model)
             self.video_thread.set_kinect(self.kinect)
             self.video_thread.set_target_classes(config_manager.detection.target_classes)
+            self.video_thread.set_stream_type(self.control_panel.get_kinect_stream_type())
             
             self.video_thread.frame_ready.connect(self.update_video_display)
             self.video_thread.detection_ready.connect(self.update_detections)
+            self.video_thread.stream_info_ready.connect(self.update_stream_info)
             
             self.video_thread.start()
             self.status_bar.showMessage("Kinect 检测运行中...")
@@ -768,6 +941,25 @@ class MainWindow(QMainWindow):
         """摄像头错误处理"""
         self.status_bar.showMessage(f"摄像头错误: {error_message}")
         QMessageBox.warning(self, "摄像头错误", error_message)
+    
+    def on_kinect_stream_changed(self, stream_type):
+        """Kinect 视频流类型改变处理"""
+        # 更新配置
+        config_manager.kinect.video_stream_type = stream_type
+        
+        # 如果正在运行检测且是 Kinect 模式，重启以使用新的流类型
+        if self.video_thread and self.video_thread.isRunning() and not self.debug_mode:
+            self.stop_detection()
+            # 重新初始化 Kinect 以支持新的流类型
+            self.init_kinect()
+            self.start_detection()
+    
+    def update_stream_info(self, info):
+        """更新流信息显示"""
+        # 可以在界面上显示当前流类型信息
+        # 暂时在状态栏显示
+        if "Kinect" in info:
+            self.status_bar.showMessage(info)
         
     def update_target_classes(self, classes):
         """更新目标类别"""
@@ -779,7 +971,12 @@ class MainWindow(QMainWindow):
     @pyqtSlot(np.ndarray)
     def update_video_display(self, frame):
         """更新视频显示"""
-        self.video_display.update_frame(frame, self.current_detections)
+        # 获取当前流类型
+        stream_type = "color"  # 默认
+        if not self.debug_mode and self.video_thread:
+            stream_type = self.video_thread.stream_type
+        
+        self.video_display.update_frame(frame, self.current_detections, stream_type)
         
     @pyqtSlot(list)
     def update_detections(self, detections):

@@ -54,13 +54,17 @@ class KinectConfig:
     color_resolution: str
     fps: int
     auto_exposure: bool
+    video_stream_type: str
+    depth_mode: str
     
     @classmethod
     def default(cls):
         return cls(
             color_resolution="1920x1080",
             fps=30,
-            auto_exposure=True
+            auto_exposure=True,
+            video_stream_type="color",  # color, depth, infrared, body_index
+            depth_mode="near"  # near, default
         )
 
 
@@ -149,6 +153,22 @@ class ConfigManager:
             'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier',
             'toothbrush', 'pen'
         ]
+    
+    def get_kinect_stream_types(self) -> Dict[str, str]:
+        """获取可用的 Kinect 视频流类型"""
+        return {
+            'color': '彩色图像 (RGB)',
+            'depth': '深度图像',
+            'infrared': '红外图像',
+            'body_index': '人体索引图像'
+        }
+    
+    def get_kinect_depth_modes(self) -> Dict[str, str]:
+        """获取可用的深度模式"""
+        return {
+            'near': '近距模式 (0.5-4.5m)',
+            'default': '默认模式 (0.8-8m)'
+        }
     
     def reset_to_defaults(self):
         """重置为默认配置"""
