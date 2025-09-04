@@ -1,0 +1,518 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>SettingsDialog</class>
+ <widget class="QDialog" name="SettingsDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>600</width>
+    <height>500</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>600</width>
+    <height>500</height>
+   </size>
+  </property>
+  <property name="maximumSize">
+   <size>
+    <width>600</width>
+    <height>500</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>系统设置</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QTabWidget" name="tab_widget">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     <widget class="QWidget" name="detection_tab">
+      <attribute name="title">
+       <string>检测设置</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="detection_layout">
+       <item>
+        <widget class="QGroupBox" name="model_group">
+         <property name="title">
+          <string>模型设置</string>
+         </property>
+         <layout class="QGridLayout" name="model_layout">
+          <item row="0" column="0">
+           <widget class="QLabel" name="model_path_label">
+            <property name="text">
+             <string>模型文件:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="model_path_combo">
+            <property name="editable">
+             <bool>true</bool>
+            </property>
+            <item>
+             <property name="text">
+              <string>yolo11n.pt</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>yolo11s.pt</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>yolo11m.pt</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>yolo11l.pt</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QPushButton" name="browse_btn">
+            <property name="text">
+             <string>浏览...</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="confidence_label">
+            <property name="text">
+             <string>置信度阈值:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QSlider" name="confidence_slider">
+            <property name="minimum">
+             <number>1</number>
+            </property>
+            <property name="maximum">
+             <number>100</number>
+            </property>
+            <property name="value">
+             <number>50</number>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QLabel" name="confidence_value_label">
+            <property name="text">
+             <string>0.50</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="max_detections_label">
+            <property name="text">
+             <string>最大检测数:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QSpinBox" name="max_detections_spin">
+            <property name="minimum">
+             <number>1</number>
+            </property>
+            <property name="maximum">
+             <number>1000</number>
+            </property>
+            <property name="value">
+             <number>50</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="classes_group">
+         <property name="title">
+          <string>目标类别</string>
+         </property>
+         <layout class="QVBoxLayout" name="classes_layout">
+          <item>
+           <layout class="QHBoxLayout" name="classes_buttons_layout">
+            <item>
+             <widget class="QPushButton" name="select_all_btn">
+              <property name="text">
+               <string>全选</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="select_none_btn">
+              <property name="text">
+               <string>全不选</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="select_common_btn">
+              <property name="text">
+               <string>常用物品</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="classes_buttons_spacer">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QListWidget" name="classes_list">
+            <property name="maximumSize">
+             <size>
+              <width>16777215</width>
+              <height>200</height>
+             </size>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <spacer name="detection_spacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="display_tab">
+      <attribute name="title">
+       <string>显示设置</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="display_layout">
+       <item>
+        <widget class="QGroupBox" name="display_options_group">
+         <property name="title">
+          <string>显示选项</string>
+         </property>
+         <layout class="QGridLayout" name="display_options_layout">
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="show_confidence_cb">
+            <property name="text">
+             <string>显示置信度</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QCheckBox" name="show_class_names_cb">
+            <property name="text">
+             <string>显示类别名称</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="bbox_thickness_label">
+            <property name="text">
+             <string>边框粗细:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QSpinBox" name="bbox_thickness_spin">
+            <property name="minimum">
+             <number>1</number>
+            </property>
+            <property name="maximum">
+             <number>10</number>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="font_scale_label">
+            <property name="text">
+             <string>字体大小:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QDoubleSpinBox" name="font_scale_spin">
+            <property name="minimum">
+             <double>0.100000000000000</double>
+            </property>
+            <property name="maximum">
+             <double>2.000000000000000</double>
+            </property>
+            <property name="singleStep">
+             <double>0.100000000000000</double>
+            </property>
+            <property name="value">
+             <double>0.500000000000000</double>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="color_group">
+         <property name="title">
+          <string>颜色设置</string>
+         </property>
+         <layout class="QGridLayout" name="color_layout">
+          <item row="0" column="0">
+           <widget class="QLabel" name="bbox_color_label">
+            <property name="text">
+             <string>边框颜色:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QPushButton" name="bbox_color_btn">
+            <property name="minimumSize">
+             <size>
+              <width>60</width>
+              <height>30</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>60</width>
+              <height>30</height>
+             </size>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: rgb(0, 255, 0);
+    border: 1px solid #C7C7CC;
+    border-radius: 4px;
+}</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="text_color_label">
+            <property name="text">
+             <string>文字颜色:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QPushButton" name="text_color_btn">
+            <property name="minimumSize">
+             <size>
+              <width>60</width>
+              <height>30</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>60</width>
+              <height>30</height>
+             </size>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: rgb(0, 255, 0);
+    border: 1px solid #C7C7CC;
+    border-radius: 4px;
+}</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <spacer name="display_spacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="kinect_tab">
+      <attribute name="title">
+       <string>Kinect 设置</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="kinect_layout">
+       <item>
+        <widget class="QGroupBox" name="kinect_settings_group">
+         <property name="title">
+          <string>Kinect 设置</string>
+         </property>
+         <layout class="QGridLayout" name="kinect_settings_layout">
+          <item row="0" column="0">
+           <widget class="QLabel" name="resolution_label">
+            <property name="text">
+             <string>彩色分辨率:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="resolution_combo">
+            <item>
+             <property name="text">
+              <string>1920x1080</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>1280x720</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>640x480</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="fps_label">
+            <property name="text">
+             <string>帧率 (FPS):</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QSpinBox" name="fps_spin">
+            <property name="minimum">
+             <number>15</number>
+            </property>
+            <property name="maximum">
+             <number>60</number>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0" colspan="2">
+           <widget class="QCheckBox" name="auto_exposure_cb">
+            <property name="text">
+             <string>自动曝光</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="status_group">
+         <property name="title">
+          <string>设备状态</string>
+         </property>
+         <layout class="QVBoxLayout" name="status_layout">
+          <item>
+           <widget class="QLabel" name="status_label">
+            <property name="text">
+             <string>正在检测 Kinect 设备...</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="refresh_btn">
+            <property name="text">
+             <string>刷新设备状态</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <spacer name="kinect_spacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="buttons_layout">
+     <item>
+      <widget class="QPushButton" name="reset_btn">
+       <property name="text">
+        <string>重置默认值</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="buttons_spacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="cancel_btn">
+       <property name="text">
+        <string>取消</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="save_btn">
+       <property name="text">
+        <string>保存</string>
+       </property>
+       <property name="default">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

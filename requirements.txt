@@ -1,0 +1,22 @@
+# Oasis 目标检测系统依赖包
+
+# 深度学习和计算机视觉
+ultralytics>=8.0.0          # YOLO 模型
+opencv-python>=4.8.0        # OpenCV 图像处理
+numpy>=1.21.0               # 数值计算
+
+# PyQt6 图形界面
+PyQt6>=6.4.0                # Qt6 GUI 框架
+PyQt6-tools>=6.4.0          # Qt6 开发工具
+
+# Kinect 2.0 支持
+pykinect2>=0.1.0            # Kinect for Windows SDK 2.0 Python 接口
+
+# 可选依赖（性能优化）
+torch>=2.0.0                # PyTorch 深度学习框架
+torchvision>=0.15.0         # PyTorch 计算机视觉
+
+# 开发和调试工具（可选）
+# pylint>=2.17.0            # 代码质量检查
+# black>=23.0.0             # 代码格式化
+# pytest>=7.0.0             # 单元测试

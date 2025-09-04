@@ -1,0 +1,337 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1200</width>
+    <height>800</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Oasis 目标检测系统</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">QMainWindow {
+    background-color: #F2F2F7;
+}</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QHBoxLayout" name="horizontalLayout">
+    <item>
+     <widget class="QSplitter" name="splitter">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+      <widget class="QLabel" name="video_display">
+       <property name="minimumSize">
+        <size>
+         <width>640</width>
+         <height>480</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QLabel {
+    border: 2px solid #C7C7CC;
+    border-radius: 8px;
+    background-color: #000000;
+}</string>
+       </property>
+       <property name="text">
+        <string>等待视频输入...</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+       <property name="scaledContents">
+        <bool>true</bool>
+       </property>
+      </widget>
+      <widget class="QWidget" name="right_panel" native="true">
+       <property name="maximumSize">
+        <size>
+         <width>400</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout">
+        <item>
+         <widget class="QGroupBox" name="control_group">
+          <property name="title">
+           <string>控制面板</string>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">QGroupBox {
+    font-weight: bold;
+    border: 1px solid #C7C7CC;
+    border-radius: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    background-color: white;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 8px 0 8px;
+    color: #007AFF;
+}</string>
+          </property>
+          <layout class="QVBoxLayout" name="control_layout">
+           <item>
+            <widget class="QGroupBox" name="button_group">
+             <property name="title">
+              <string>检测控制</string>
+             </property>
+             <layout class="QVBoxLayout" name="button_layout">
+              <item>
+               <widget class="QPushButton" name="start_btn">
+                <property name="minimumSize">
+                 <size>
+                  <width>0</width>
+                  <height>35</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>开始检测</string>
+                </property>
+                <property name="styleSheet">
+                 <string notr="true">QPushButton {
+    background-color: #007AFF;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 14px;
+}
+QPushButton:hover {
+    background-color: #0056D3;
+}
+QPushButton:pressed {
+    background-color: #004A9F;
+}
+QPushButton:disabled {
+    background-color: #C7C7CC;
+}</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="stop_btn">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>0</width>
+                  <height>35</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>停止检测</string>
+                </property>
+                <property name="styleSheet">
+                 <string notr="true">QPushButton {
+    background-color: #F2F2F7;
+    color: #007AFF;
+    border: 1px solid #C7C7CC;
+    border-radius: 8px;
+    font-size: 14px;
+}
+QPushButton:hover {
+    background-color: #E5E5EA;
+}
+QPushButton:pressed {
+    background-color: #D1D1D6;
+}</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QGroupBox" name="classes_group">
+             <property name="title">
+              <string>检测类别</string>
+             </property>
+             <layout class="QVBoxLayout" name="classes_layout">
+              <item>
+               <widget class="QScrollArea" name="classes_scroll">
+                <property name="maximumSize">
+                 <size>
+                  <width>16777215</width>
+                  <height>200</height>
+                 </size>
+                </property>
+                <property name="widgetResizable">
+                 <bool>true</bool>
+                </property>
+                <widget class="QWidget" name="classes_content">
+                 <property name="geometry">
+                  <rect>
+                   <x>0</x>
+                   <y>0</y>
+                   <width>376</width>
+                   <height>196</height>
+                  </rect>
+                 </property>
+                 <layout class="QVBoxLayout" name="classes_content_layout"/>
+                </widget>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <spacer name="control_spacer">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="detection_group">
+          <property name="title">
+           <string>检测结果</string>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">QGroupBox {
+    font-weight: bold;
+    border: 1px solid #C7C7CC;
+    border-radius: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    background-color: white;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 8px 0 8px;
+    color: #007AFF;
+}</string>
+          </property>
+          <layout class="QVBoxLayout" name="detection_layout">
+           <item>
+            <widget class="QListWidget" name="result_list">
+             <property name="styleSheet">
+              <string notr="true">QListWidget {
+    border: 1px solid #C7C7CC;
+    border-radius: 8px;
+    background-color: white;
+    padding: 5px;
+}
+QListWidget::item {
+    padding: 5px;
+    margin: 2px;
+    border-radius: 4px;
+}
+QListWidget::item:selected {
+    background-color: #007AFF;
+    color: white;
+}</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="stats_label">
+             <property name="text">
+              <string>当前检测: 0 个对象</string>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">color: #8E8E93; font-size: 12px;</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1200</width>
+     <height>24</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="file_menu">
+    <property name="title">
+     <string>文件</string>
+    </property>
+    <addaction name="settings_action"/>
+    <addaction name="separator"/>
+    <addaction name="exit_action"/>
+   </widget>
+   <widget class="QMenu" name="view_menu">
+    <property name="title">
+     <string>视图</string>
+    </property>
+    <addaction name="reset_layout_action"/>
+   </widget>
+   <widget class="QMenu" name="help_menu">
+    <property name="title">
+     <string>帮助</string>
+    </property>
+    <addaction name="about_action"/>
+   </widget>
+   <addaction name="file_menu"/>
+   <addaction name="view_menu"/>
+   <addaction name="help_menu"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar">
+   <property name="styleSheet">
+    <string notr="true">QStatusBar {
+    background-color: #F2F2F7;
+    border-top: 1px solid #C7C7CC;
+    color: #8E8E93;
+    font-size: 12px;
+}</string>
+   </property>
+  </widget>
+  <action name="settings_action">
+   <property name="text">
+    <string>设置</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+,</string>
+   </property>
+  </action>
+  <action name="exit_action">
+   <property name="text">
+    <string>退出</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Q</string>
+   </property>
+  </action>
+  <action name="reset_layout_action">
+   <property name="text">
+    <string>重置布局</string>
+   </property>
+  </action>
+  <action name="about_action">
+   <property name="text">
+    <string>关于</string>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
